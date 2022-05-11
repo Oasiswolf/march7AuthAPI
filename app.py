@@ -8,7 +8,7 @@ import os
 
 app = Flask(__name__)
 basedir = os.path.abspath(os.path.dirname(__file__))
-app.config['SQLALHEMY_DATABASE_URI'] = "sqlite:///" + os.path.join(basedir, 'app.sqlite')
+app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///" + os.path.join(basedir, 'app.sqlite')
 
 db = SQLAlchemy(app)
 ma = Marshmallow(app)
@@ -17,7 +17,7 @@ CORS(app)
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key = True)
-    email = db.Column(db.String, nullable = False, unique = True)
+    username = db.Column(db.String, nullable = False, unique = True)
     password = db.Column(db.String, nullable= False)
     email = db.Column(db.String, nullable = False, unique = True)
 
@@ -46,7 +46,7 @@ def add_user():
 
     pw_hash = bcrypt.generate_password_hash(password).decode('utf-8')
 
-    new_record = User(username, pw_hash, email, password)
+    new_record = User(username, pw_hash, email)
     db.session.add(new_record)
     db.session.commit()
 
@@ -75,9 +75,53 @@ def verification():
 #  Get All Users
 @app.route("/user/get", methods=["GET"])
 def get_users():
-    users = db.session.query(User).all()
-    return jsonify(multi_user_schema.dump(users))
+    all_users = db.session.query(User).all()
+    return jsonify(multi_user_schema.dump(all_users))
+
+#  Delete User EndPoint
+
+@app.route('/user/delete/<id>', methods=["DELETE"])
+def user_delete(id):
+    delete_user = db.session.query(User).filter(User.id == id).first()
+    db.session.delete(delete_user)
+    db.session.commit()
+    return jsonify(" Another one Bites the Dust!")
+
+
+#  Update Username/Email   
+
+@app.route('/user/update/<id>', methods=["PUT"])
+def update_usermail(id):
+    if request.content_type != "application/json":
+        return jsonify("JSON Needed or no Coookies for you!")
     
+    put_data = request.get_json()
+    username = put_data.get("username")
+    email = put_data.get("email")
+
+    usermail_update = db.session.query(User).filter(User.id == id).first()
+
+    if username != None:
+        usermail_update.username = username
+    if email != None:
+        usermail_update.email = email
+    
+    db.session.commit()
+    return jsonify(user_schema.dump(usermail_update))
+
+# Password Update
+@app.route('/user/pw/<id>', methods=["PUT"])
+def pw_update(id):
+    if request.content_type != "application/json":
+        return jsonify("JSON JSon JSoN")
+    
+    password = request.get_json().get("password")
+    user = db.session.query(User).filter(User.id == id).first()
+    pw_hash = bcrypt.generate_password_hash(password).decode('utf-8')
+    user.password = pw_hash
+
+    db.session.commit()
+    return jsonify(user_schema.dump(user))
 
 
 
